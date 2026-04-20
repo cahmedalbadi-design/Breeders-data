@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>بيانات المربي</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Tahoma,Arial;margin:0;padding:10px;background:#d9d9d9;direction:rtl}
+.custom-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999}
+.modal-box{background:#fff;border:4px solid #00b8d9;border-radius:8px;padding:24px 30px;min-width:300px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.2);animation:popIn .2s ease}
+@keyframes popIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-box h3{margin:0 0 12px 0;color:#00b8d9;font-size:1.1rem}
+.modal-box p{margin:0 0 20px 0;font-size:14px;color:#333}
+.modal-buttons{display:flex;justify-content:center;gap:16px}
+.confirm-btn{background:#2bb673;color:#fff;padding:8px 28px;border:none;border-radius:5px;font-weight:bold;cursor:pointer}
+.cancel-btn{background:#e65050;color:#fff;padding:8px 28px;border:none;border-radius:5px;font-weight:bold;cursor:pointer}
+#financialDate{direction:ltr;unicode-bidi:normal}
+#searchResultsTable th,#searchResultsTable td{border:1px solid #ccc;padding:6px 4px;text-align:center;white-space:nowrap}
+#searchResultsContainer{border-top:1px solid #ddd;margin-top:10px}
+.top-bar{display:flex;justify-content:space-between;align-items:center;gap:20px;background:#f8ffff;border:4px solid #00b8d9;padding:8px 10px;border-radius:4px;margin-bottom:12px;flex-wrap:wrap}
+.top-group{display:flex;align-items:center;gap:8px}
+.top-group label{font-weight:bold}
+.top-group input{width:160px;padding:5px;border:2px solid #ddd;border-radius:3px}
+.main-container{display:flex;gap:14px;align-items:flex-start}
+.right-panel{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{background:#f8ffff;border:4px solid #00b8d9;border-radius:4px;padding:8px;display:flex;flex-direction:column}
+#dataEntryInput{margin-top:10px;margin-bottom:20px;display:block;width:100%}
+#dataUpdaterInput{margin-top:5px;margin-bottom:3px;display:block;width:100%}
+#financialDate{display:block;margin:5px auto 10px auto;width:100%}
+.card h3{background:#00b8d9;color:#fff;padding:6px;text-align:center;margin:-8px -8px 8px -8px;font-size:1rem}
+.row{display:flex;justify-content:space-between;margin:4px 0}
+.row label{width:100px}
+input,select{padding:4px 6px;border:2px solid #ddd;border-radius:3px;font-size:13px}
+.row input,.row select{width:150px}
+.animals-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.animal-item{display:flex;align-items:center;gap:5px;font-size:13px}
+.animal-item label{width:50px}
+.animal-item input{width:80px}
+textarea{width:100%;height:70px;margin-top:5px;font-size:12px;padding:5px}
+.full-width{grid-column:1/-1}
+.btns{display:flex;justify-content:center;gap:12px;margin:4px 0;flex-wrap:wrap}
+button{padding:8px 20px;border:0;border-radius:5px;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.6;cursor:not-allowed}
+.save{background:#2bb673;color:#000}
+.clear{background:#ffb347;color:#000}
+.delete{background:#e65050;color:#000}
+.update{background:#d9f42c;color:#000}
+input[readonly]{background-color:#f0f0f0;cursor:default}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:1000;box-shadow:0 2px 10px rgba(0,0,0,.2);transition:opacity .3s ease;opacity:0;pointer-events:none}
+.toast.success{background-color:#2bb673}
+.toast.error{background-color:#e65050}
+.toast.show{opacity:1}
+.merged-empty-card{min-height:280px;display:flex;flex-direction:column}
+.setup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:10000}
+.setup-box{background:#fff;padding:24px;border-radius:8px;max-width:500px;width:90%}
+.setup-box h3{margin-top:0;color:#00b8d9}
+.setup-box input{width:100%;padding:8px;margin:10px 0;border:2px solid #ddd;border-radius:4px}
+.setup-box button{background:#2bb673;color:#fff;padding:10px 20px;width:100%;border:0;border-radius:5px;font-weight:bold;cursor:pointer}
+@media(max-width:1100px){.main-container{flex-direction:column}.right-panel{grid-template-columns:1fr}.merged-empty-card{min-height:auto}}
+</style>
+</head>
+<body>
+
+<div class="setup-overlay" id="setupOverlay" style="display:none">
+  <div class="setup-box">
+    <h3>🔧 إعداد رابط الخدمة</h3>
+    <p>الصق رابط الـ Web App:</p>
+    <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+    <button onclick="saveApiUrl()">حفظ والمتابعة</button>
+  </div>
+</div>
+
+<div class="top-bar">
+  <div class="row"><label>📞أختر الرقم</label>
+    <input list="phoneList" id="phoneInput" style="width:265px" placeholder="اختر أو اكتب رقم الهاتف"><datalist id="phoneList"></datalist>
+  </div>
+  <div><button onclick="changeApiUrl()" style="background:#7f8c8d;color:#fff;padding:4px 10px;font-size:11px">⚙️</button></div>
+</div>
+
+<div class="main-container">
+  <div class="right-panel">
+    <div class="card">
+      <h3>بيانات المربي</h3>
+      <div class="row"><label>رقم الهاتف</label><input id="caseNumber" style="width:250px"></div>
+      <div class="row"><label>الاسم الثلاثي</label><input id="nameInput" style="width:250px"></div>
+      <div class="row"><label>رقم الحيازة</label><input id="possessionInput" style="width:250px"></div>
+      <div class="row"><label>المنطقة</label><input list="regionList" id="regionInput" style="width:250px" placeholder="اختر أو اكتب المنطقة"><datalist id="regionList"></datalist></div>
+      <div class="row"><label>الرقم المدني</label><input id="civilInput" style="width:250px"></div>
+      <div class="row"><label>رقم جديد</label><input id="newPhoneInput" style="width:250px" placeholder="اتركه فارغاً إن لم تغيره"></div>
+    </div>
+    <div class="card">
+      <h3>عدد الحيوانات</h3>
+      <div class="animals-grid">
+        <div class="animal-item"><label>ماعز</label><input type="number" id="animal_goat"></div>
+        <div class="animal-item"><label>أغنام</label><input type="number" id="animal_sheep"></div>
+        <div class="animal-item"><label>أبقار</label><input type="number" id="animal_cow"></div>
+        <div class="animal-item"><label>جمال</label><input type="number" id="animal_camel"></div>
+        <div class="animal-item"><label>خيول</label><input type="number" id="animal_horse"></div>
+        <div class="animal-item"><label>قطط</label><input type="number" id="animal_cat"></div>
+        <div class="animal-item"><label>كلاب</label><input type="number" id="animal_dog"></div>
+        <div class="animal-item"><label>دواجن</label><input type="number" id="animal_poultry"></div>
+      </div>
+      <textarea id="notes" placeholder="ملاحظات إضافية..." style="display:block;margin:12px auto;width:90%"></textarea>
+    </div>
+    <div class="card">
+      <h3>مدخل البيانات</h3>
+      <input list="dataEntryList" id="dataEntryInput" placeholder="اختر مدخل البيانات"><datalist id="dataEntryList"></datalist>
+      <h3>تاريخ إنتهاء الحيازة</h3>
+      <input type="date" id="financialDate" dir="ltr">
+      <h3>مدخل البيانات (التحديث)</h3>
+      <input list="dataUpdaterList" id="dataUpdaterInput" placeholder="اختر مدخل البيانات للتحديث"><datalist id="dataUpdaterList"></datalist>
+    </div>
+
+    <div class="card merged-empty-card" style="grid-column:span 3">
+      <h3>البحث في بيانات المربين</h3>
+      <div style="display:flex;gap:8px;justify-content:center;margin:12px 0">
+        <input type="text" id="globalSearchInput" placeholder="اكتب للبحث..." style="width:250px;padding:5px">
+      </div>
+      <div id="searchResultsContainer" style="display:none;max-height:300px;overflow:auto">
+        <table id="searchResultsTable" style="width:100%;border-collapse:collapse">
+          <thead id="searchResultsHeader"></thead>
+          <tbody id="searchResultsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card full-width">
+      <div class="btns">
+        <button class="save" id="saveBtn">حفظ</button>
+        <button class="update" id="updateBtn">تحديث</button>
+        <button class="clear" id="clearBtn">مسح</button>
+        <button class="delete" id="deleteBtn">حذف البيانات</button>
+        <button id="updatePossessionBtn" style="background:#8e44ad;color:#fff">تحديث الحيازة في العلاج</button>
+        <button id="saveVaccinationBtn" style="background:#27ae60;color:#fff">💉 حفظ تحصين</button>
+        <button id="updateVaccinationBtn" style="background:#e67e22;color:#fff">✏️ تحديث تحصين</button>
+        <button id="deleteVaccinationBtn" style="background:#c0392b;color:#fff">🗑️ حذف تحصين</button>
+      </div>
+    </div>
+    <input type="hidden" id="private">
+  </div>
+</div>
+
+<script>
+"use strict";
+
+var API_URL = localStorage.getItem("breeders_v2_api_url") || "";
+if (!API_URL) document.getElementById("setupOverlay").style.display = "flex";
+
+function saveApiUrl() {
+  var url = document.getElementById("apiUrlInput").value.trim();
+  if (!url) { alert("الرجاء إدخال الرابط"); return; }
+  localStorage.setItem("breeders_v2_api_url", url);
+  API_URL = url;
+  document.getElementById("setupOverlay").style.display = "none";
+  init();
+}
+function changeApiUrl() {
+  document.getElementById("apiUrlInput").value = API_URL;
+  document.getElementById("setupOverlay").style.display = "flex";
+}
+
+async function callApi(action, payload) {
+  if (!API_URL) throw new Error("رابط الخدمة غير مُعدّ");
+  var body = JSON.stringify(Object.assign({ action: action }, payload || {}));
+  var r = await fetch(API_URL, { method:"POST", mode:"cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:body, redirect:"follow" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
+}
+
+// ===== UI =====
+function showMessage(msg, isError) {
+  var old = document.querySelector(".toast"); if (old) old.remove();
+  var t = document.createElement("div"); t.className = "toast " + (isError?"error":"success");
+  t.textContent = msg; document.body.appendChild(t);
+  setTimeout(function(){t.classList.add("show");},10);
+  setTimeout(function(){t.classList.remove("show");setTimeout(function(){t.remove();},300);},4000);
+}
+
+function showConfirm(msg, onConfirm) {
+  var existing = document.querySelector(".custom-modal"); if (existing) existing.remove();
+  var modal = document.createElement("div"); modal.className = "custom-modal";
+  modal.innerHTML = '<div class="modal-box"><h3>⚠️ تأكيد</h3><p>'+msg+'</p><div class="modal-buttons"><button class="confirm-btn">✔ نعم</button><button class="cancel-btn">✖ إلغاء</button></div></div>';
+  document.body.appendChild(modal);
+  modal.addEventListener("click",function(e){if(e.target===modal)modal.remove();});
+  modal.querySelector(".confirm-btn").addEventListener("click",function(){modal.remove();onConfirm();});
+  modal.querySelector(".cancel-btn").addEventListener("click",function(){modal.remove();});
+}
+
+function safeSet(id,v){var el=document.getElementById(id);if(el)el.value=v||"";}
+function getValue(id){var el=document.getElementById(id);return el?el.value.trim():"";}
+
+function fillFormWithData(data) {
+  safeSet("caseNumber",data.phone); safeSet("private",data.phone);
+  safeSet("nameInput",data.name); safeSet("possessionInput",data.possession);
+  safeSet("regionInput",data.region); safeSet("civilInput",data.civil);
+  safeSet("notes",data.notes); safeSet("dataEntryInput",data.dataEntry);
+  safeSet("financialDate",data.financialDate);
+  if(data.animals){
+    safeSet("animal_goat",data.animals.goat); safeSet("animal_sheep",data.animals.sheep);
+    safeSet("animal_cow",data.animals.cow); safeSet("animal_camel",data.animals.camel);
+    safeSet("animal_horse",data.animals.horse); safeSet("animal_cat",data.animals.cat);
+    safeSet("animal_dog",data.animals.dog); safeSet("animal_poultry",data.animals.poultry);
+  }
+  showMessage("تم تحميل بيانات المربي بنجاح",false);
+}
+
+function clearForm() {
+  ["caseNumber","nameInput","possessionInput","regionInput","civilInput","newPhoneInput",
+   "notes","dataEntryInput","dataUpdaterInput","financialDate","phoneInput","private","globalSearchInput",
+   "animal_goat","animal_sheep","animal_cow","animal_camel","animal_horse","animal_cat","animal_dog","animal_poultry"
+  ].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});
+  document.getElementById("searchResultsContainer").style.display="none";
+  document.getElementById("searchResultsBody").innerHTML="";
+  document.getElementById("searchResultsHeader").innerHTML="";
+}
+
+function validateSave() {
+  if(getValue("private")!==""){showMessage("⚠️ وضع تحديث — استخدم زر التحديث",true);return false;}
+  if(!getValue("caseNumber")){showMessage("⚠️ رقم الهاتف مطلوب",true);return false;}
+  if(!getValue("nameInput")){showMessage("⚠️ الاسم مطلوب",true);return false;}
+  if(!getValue("regionInput")){showMessage("⚠️ المنطقة مطلوبة",true);return false;}
+  if(!getValue("dataEntryInput")){showMessage("⚠️ مدخل البيانات مطلوب",true);return false;}
+  if(getValue("newPhoneInput")!==""){showMessage("⚠️ حقل الرقم الجديد يجب أن يكون فارغاً عند الحفظ",true);return false;}
+  return true;
+}
+function validateUpdate() {
+  if(!getValue("caseNumber")){showMessage("⚠️ رقم الهاتف مطلوب",true);return false;}
+  if(!getValue("nameInput")){showMessage("⚠️ الاسم مطلوب",true);return false;}
+  if(!getValue("regionInput")){showMessage("⚠️ المنطقة مطلوبة",true);return false;}
+  if(!getValue("dataUpdaterInput")){showMessage("⚠️ مدخل البيانات (التحديث) مطلوب",true);return false;}
+  return true;
+}
+
+// ===== Dropdowns =====
+async function refreshDropdowns() {
+  try {
+    var results = await Promise.all([callApi("getPhoneNumbers"),callApi("getDataEntryOptions"),callApi("getRegionOptions")]);
+    function fill(id,arr){var dl=document.getElementById(id);dl.innerHTML="";(arr||[]).sort().forEach(function(v){var o=document.createElement("option");o.value=v;dl.appendChild(o);});}
+    if(results[0].success)fill("phoneList",results[0].data);
+    if(results[1].success){fill("dataEntryList",results[1].data);fill("dataUpdaterList",results[1].data);}
+    if(results[2].success)fill("regionList",results[2].data);
+  }catch(err){showMessage("خطأ في تحميل القوائم: "+err.message,true);}
+}
+
+// ===== CRUD =====
+async function saveData() {
+  if(!validateSave())return;
+  var data={phone:getValue("caseNumber"),name:getValue("nameInput"),possession:getValue("possessionInput"),
+    region:getValue("regionInput"),civil:getValue("civilInput"),notes:getValue("notes"),
+    animals:{camel:getValue("animal_camel"),goat:getValue("animal_goat"),sheep:getValue("animal_sheep"),cow:getValue("animal_cow"),poultry:getValue("animal_poultry")},
+    financialDate:getValue("financialDate"),dataEntry:getValue("dataEntryInput")};
+  var btn=document.getElementById("saveBtn"),orig=btn.textContent;
+  btn.textContent="جاري الحفظ...";btn.disabled=true;
+  try{var res=await callApi("saveData",{data:data});if(res.success){showMessage("تم الحفظ بنجاح",false);clearForm();refreshDropdowns();}else showMessage(res.message,true);}
+  catch(err){showMessage("خطأ: "+err.message,true);}
+  finally{btn.textContent=orig;btn.disabled=false;}
+}
+
+async function updateData() {
+  if(!validateUpdate())return;
+  var phone=getValue("phoneInput")||getValue("caseNumber");
+  if(!phone){showMessage("الرجاء اختيار رقم الهاتف",true);return;}
+  var newPhone=getValue("newPhoneInput");
+  var data={phone:phone,newPhone:newPhone||phone,name:getValue("nameInput"),possession:getValue("possessionInput"),
+    region:getValue("regionInput"),civil:getValue("civilInput"),notes:getValue("notes"),
+    dataEntry:getValue("dataEntryInput"),dataUpdater:getValue("dataUpdaterInput"),
+    animals:{camel:getValue("animal_camel"),goat:getValue("animal_goat"),sheep:getValue("animal_sheep"),cow:getValue("animal_cow"),poultry:getValue("animal_poultry")},
+    financialDate:getValue("financialDate")};
+  showConfirm("هل أنت متأكد من تحديث بيانات الرقم: "+phone+"؟",async function(){
+    var btn=document.getElementById("updateBtn"),orig=btn.textContent;
+    btn.textContent="جاري التحديث...";btn.disabled=true;
+    try{var res=await callApi("updateData",{data:data});if(res.success){showMessage("تم التحديث بنجاح ✓",false);clearForm();refreshDropdowns();}else showMessage(res.message,true);}
+    catch(err){showMessage("خطأ: "+err.message,true);}
+    finally{btn.textContent=orig;btn.disabled=false;}
+  });
+}
+
+async function deleteData() {
+  var phone=getValue("phoneInput");
+  if(!phone){showMessage("الرجاء اختيار رقم الهاتف",true);return;}
+  showConfirm("هل أنت متأكد من حذف بيانات الرقم: "+phone+"؟",async function(){
+    var btn=document.getElementById("deleteBtn"),orig=btn.textContent;
+    btn.textContent="جاري الحذف...";btn.disabled=true;
+    try{var res=await callApi("deleteData",{phone:phone});if(res.success){showMessage("تم الحذف بنجاح ✓",false);clearForm();refreshDropdowns();}else showMessage(res.message,true);}
+    catch(err){showMessage("خطأ: "+err.message,true);}
+    finally{btn.textContent=orig;btn.disabled=false;}
+  });
+}
+
+// ===== Search =====
+async function performGlobalSearch() {
+  var searchText=getValue("globalSearchInput");
+  if(!searchText){showMessage("الرجاء إدخال نص للبحث",true);return;}
+  var container=document.getElementById("searchResultsContainer");
+  container.style.display="block";
+  var tbody=document.getElementById("searchResultsBody");
+  tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>جاري البحث...</td></tr>";
+  try {
+    var res=await callApi("searchBreeders",{searchText:searchText});
+    if(!res.success||!res.data||res.data.length<=1){tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>لا توجد نتائج</td></tr>";return;}
+    var headers=res.data[0],rows=res.data.slice(1);
+    document.getElementById("searchResultsHeader").innerHTML="<tr>"+headers.map(function(h){return"<th style='border:1px solid #ccc;padding:4px;background:#f0f0f0'>"+(h||" ")+"</th>";}).join("")+"</tr>";
+    tbody.innerHTML=rows.map(function(row){return"<tr>"+row.map(function(c){return"<td style='border:1px solid #ccc;padding:4px'>"+(c||" ")+"</td>";}).join("")+"</tr>";}).join("");
+
+    Array.from(tbody.querySelectorAll("tr")).forEach(function(tr){
+      tr.style.cursor="pointer";
+      tr.addEventListener("click",async function(){
+        var firstCell=tr.cells[0].textContent.trim();
+        if(!firstCell)return;
+        document.getElementById("phoneInput").value=firstCell;
+        container.style.display="none";
+        await loadCaseData(firstCell);
+      });
+    });
+  }catch(err){tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>خطأ: "+err.message+"</td></tr>";}
+}
+
+async function loadCaseData(phone) {
+  showMessage("جاري جلب البيانات...",false);
+  try{var res=await callApi("searchCaseData",{phone:phone});if(res.success)fillFormWithData(res);else showMessage(res.message,true);}
+  catch(err){showMessage("خطأ: "+err.message,true);}
+}
+
+// ===== Possession in treatment =====
+async function updatePossession() {
+  var phone=getValue("phoneInput"),possession=getValue("possessionInput");
+  if(!phone){showMessage("⚠️ الرجاء اختيار رقم الهاتف",true);return;}
+  if(!possession){showMessage("⚠️ رقم الحيازة فارغ",true);return;}
+  showConfirm("هل تريد تحديث رقم الحيازة في جميع سجلات العلاج للرقم: "+phone+"؟",async function(){
+    var btn=document.getElementById("updatePossessionBtn"),orig=btn.textContent;
+    btn.textContent="جاري التحديث...";btn.disabled=true;
+    try{var res=await callApi("updatePossessionInTreatment",{phone:phone,possession:possession});
+      if(res.success)showMessage("✅ تم تحديث الحيازة في "+res.updatedCount+" سجل",false);
+      else showMessage("❌ "+res.message,true);}
+    catch(err){showMessage("خطأ: "+err.message,true);}
+    finally{btn.textContent=orig;btn.disabled=false;}
+  });
+}
+
+// ===== Vaccination =====
+function collectBreederDataForUpdate(){
+  var phone=getValue("phoneInput"),newPhone=getValue("newPhoneInput");
+  return{phone:phone,newPhone:newPhone||phone,name:getValue("nameInput"),possession:getValue("possessionInput"),
+    region:getValue("regionInput"),civil:getValue("civilInput"),notes:getValue("notes"),
+    dataEntry:getValue("dataEntryInput"),dataUpdater:getValue("dataUpdaterInput"),
+    animals:{camel:getValue("animal_camel"),goat:getValue("animal_goat"),sheep:getValue("animal_sheep"),cow:getValue("animal_cow"),poultry:getValue("animal_poultry")},
+    financialDate:getValue("financialDate")};
+}
+
+async function saveVaccination() {
+  // تحديث بيانات المربي أولاً ثم حفظ التحصين
+  var phone=getValue("phoneInput");
+  if(phone){try{await callApi("updateData",{data:collectBreederDataForUpdate()});}catch(e){}}
+
+  var casePhone=getValue("caseNumber"),name=getValue("nameInput"),dataEntry=getValue("dataEntryInput");
+  if(!phone){showMessage("⚠️ أختر رقم الهاتف من البحث",true);return;}
+  if(!casePhone){showMessage("⚠️ رقم الهاتف مطلوب",true);return;}
+  if(!name){showMessage("⚠️ الاسم مطلوب",true);return;}
+  if(!dataEntry){showMessage("⚠️ مدخل البيانات مطلوب",true);return;}
+  var goat=getValue("animal_goat"),sheep=getValue("animal_sheep"),cow=getValue("animal_cow");
+  if(![goat,sheep,cow].some(function(v){return v!==""&&Number(v)>0;})){showMessage("⚠️ يجب إدخال عدد حيوان واحد على الأقل",true);return;}
+
+  var vacData={phone:casePhone,name:name,civil:getValue("civilInput"),region:getValue("regionInput"),
+    possession:getValue("possessionInput"),financialDate:getValue("financialDate"),notes:getValue("notes"),
+    animals:{goat:goat,sheep:sheep,cow:cow},dataEntry:dataEntry};
+
+  var btn=document.getElementById("saveVaccinationBtn"),orig=btn.textContent;
+  btn.textContent="جاري الحفظ...";btn.disabled=true;
+  try{var res=await callApi("saveVaccinationData",{data:vacData});if(res.success){showMessage("✅ تم حفظ بيانات التحصين",false);clearForm();}else showMessage("❌ "+res.message,true);}
+  catch(err){showMessage("خطأ: "+err.message,true);}
+  finally{btn.textContent=orig;btn.disabled=false;}
+}
+
+async function updateVaccination() {
+  var phone=getValue("phoneInput"),name=getValue("nameInput"),dataUpdater=getValue("dataUpdaterInput");
+  if(!phone){showMessage("⚠️ الرجاء اختيار الرقم",true);return;}
+  if(!name){showMessage("⚠️ الاسم مطلوب",true);return;}
+  if(!dataUpdater){showMessage("⚠️ مدخل البيانات (التحديث) مطلوب",true);return;}
+  var goat=getValue("animal_goat"),sheep=getValue("animal_sheep"),cow=getValue("animal_cow");
+  if(![goat,sheep,cow].some(function(v){return v!==""&&Number(v)>0;})){showMessage("⚠️ يجب إدخال عدد حيوان",true);return;}
+
+  var newPhone=getValue("newPhoneInput");
+  var vacData={phone:phone,newPhone:newPhone||phone,name:name,civil:getValue("civilInput"),region:getValue("regionInput"),
+    possession:getValue("possessionInput"),financialDate:getValue("financialDate"),notes:getValue("notes"),
+    animals:{goat:goat,sheep:sheep,cow:cow},dataUpdater:dataUpdater};
+
+  showConfirm("هل أنت متأكد من تحديث بيانات التحصين للرقم: "+phone+"؟",async function(){
+    // تحديث بيانات المربي أولاً
+    try{await callApi("updateData",{data:collectBreederDataForUpdate()});}catch(e){}
+
+    var btn=document.getElementById("updateVaccinationBtn"),orig=btn.textContent;
+    btn.textContent="جاري التحديث...";btn.disabled=true;
+    try{var res=await callApi("updateVaccinationData",{data:vacData});if(res.success){showMessage("✅ تم تحديث بيانات التحصين",false);clearForm();}else showMessage("❌ "+res.message,true);}
+    catch(err){showMessage("خطأ: "+err.message,true);}
+    finally{btn.textContent=orig;btn.disabled=false;}
+  });
+}
+
+async function deleteVaccination() {
+  var phone=getValue("phoneInput");
+  if(!phone){showMessage("⚠️ الرجاء اختيار الرقم",true);return;}
+  showConfirm("هل أنت متأكد من حذف بيانات التحصين للرقم: "+phone+"؟",async function(){
+    var btn=document.getElementById("deleteVaccinationBtn"),orig=btn.textContent;
+    btn.textContent="جاري الحذف...";btn.disabled=true;
+    try{var res=await callApi("deleteVaccinationData",{phone:phone});if(res.success)showMessage("✅ تم الحذف",false);else showMessage("❌ "+res.message,true);}
+    catch(err){showMessage("خطأ: "+err.message,true);}
+    finally{btn.textContent=orig;btn.disabled=false;}
+  });
+}
+
+// ===== Events =====
+function bindEvents() {
+  document.getElementById("saveBtn").onclick=saveData;
+  document.getElementById("updateBtn").onclick=updateData;
+  document.getElementById("clearBtn").onclick=clearForm;
+  document.getElementById("deleteBtn").onclick=deleteData;
+  document.getElementById("updatePossessionBtn").onclick=updatePossession;
+  document.getElementById("saveVaccinationBtn").onclick=saveVaccination;
+  document.getElementById("updateVaccinationBtn").onclick=updateVaccination;
+  document.getElementById("deleteVaccinationBtn").onclick=deleteVaccination;
+
+  document.getElementById("globalSearchInput").addEventListener("keypress",function(e){if(e.key==="Enter")performGlobalSearch();});
+  var searchTimer;
+  document.getElementById("globalSearchInput").addEventListener("input",function(){
+    clearTimeout(searchTimer);
+    if(!this.value.trim()){document.getElementById("searchResultsContainer").style.display="none";return;}
+    searchTimer=setTimeout(performGlobalSearch,400);
+  });
+
+  document.getElementById("phoneInput").addEventListener("change",async function(){
+    var phone=this.value.trim();if(!phone)return;
+    document.getElementById("private").value=phone;
+    await loadCaseData(phone);
+  });
+  document.getElementById("phoneInput").addEventListener("input",function(){
+    if(this.value.trim())document.getElementById("private").value=this.value.trim();
+  });
+}
+
+function init(){
+  bindEvents();
+  if(API_URL)refreshDropdowns();
+}
+
+if(API_URL)init();
+else bindEvents();
+</script>
+</body>
+</html>
