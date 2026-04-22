@@ -3,10 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>بيانات المربي</title>
+<title>بيانات المربي - دخول آمن (Google Sheets)</title>
 <style>
 *{box-sizing:border-box}
 body{font-family:Tahoma,Arial;margin:0;padding:10px;background:#d9d9d9;direction:rtl}
+/* شاشة تسجيل الدخول */
+.login-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:20000}
+.login-box{background:#fff;border-radius:12px;padding:30px;width:320px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.3);animation:popIn .2s ease}
+.login-box h2{color:#00b8d9;margin-top:0}
+.login-box input{width:100%;padding:10px;margin:12px 0;border:2px solid #ddd;border-radius:6px;font-size:14px}
+.login-box button{background:#2bb673;color:#fff;border:0;padding:10px;width:100%;border-radius:6px;font-weight:bold;cursor:pointer;font-size:16px}
+.login-box .error-msg{color:#e65050;font-size:13px;margin-top:5px}
+/* باقي الأنماط */
 .custom-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999}
 .modal-box{background:#fff;border:4px solid #00b8d9;border-radius:8px;padding:24px 30px;min-width:300px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.2);animation:popIn .2s ease}
 @keyframes popIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
@@ -58,10 +66,23 @@ input[readonly]{background-color:#f0f0f0;cursor:default}
 .setup-box input{width:100%;padding:8px;margin:10px 0;border:2px solid #ddd;border-radius:4px}
 .setup-box button{background:#2bb673;color:#fff;padding:10px 20px;width:100%;border:0;border-radius:5px;font-weight:bold;cursor:pointer}
 @media(max-width:1100px){.main-container{flex-direction:column}.right-panel{grid-template-columns:1fr}.merged-empty-card{min-height:auto}}
+.logout-btn{background:#e67e22;color:#fff;padding:5px 15px;border-radius:4px;font-size:13px}
 </style>
 </head>
 <body>
 
+<!-- شاشة تسجيل الدخول -->
+<div id="loginOverlay" class="login-overlay" style="display:flex;">
+  <div class="login-box">
+    <h2>🔐 دخول آمن</h2>
+    <input type="text" id="loginUsername" placeholder="اسم المستخدم" autocomplete="off">
+    <input type="password" id="loginPassword" placeholder="كلمة المرور">
+    <button onclick="attemptLogin()">تسجيل الدخول</button>
+    <div id="loginError" class="error-msg"></div>
+  </div>
+</div>
+
+<!-- شاشة إعداد رابط API -->
 <div class="setup-overlay" id="setupOverlay" style="display:none">
   <div class="setup-box">
     <h3>🔧 إعداد رابط الخدمة</h3>
@@ -71,11 +92,16 @@ input[readonly]{background-color:#f0f0f0;cursor:default}
   </div>
 </div>
 
+<!-- المحتوى الرئيسي -->
+<div id="mainContent" style="display:none;">
 <div class="top-bar">
-  <div class="row"><label>📞أختر الرقم</label>
+  <div class="row"><label>📞 أختر الرقم</label>
     <input list="phoneList" id="phoneInput" style="width:265px" placeholder="اختر أو اكتب رقم الهاتف"><datalist id="phoneList"></datalist>
   </div>
-  <div><button onclick="changeApiUrl()" style="background:#7f8c8d;color:#fff;padding:4px 10px;font-size:11px">⚙️</button></div>
+  <div style="display:flex; gap:8px;">
+    <button onclick="logout()" class="logout-btn">🚪 تسجيل خروج</button>
+    <button onclick="changeApiUrl()" style="background:#7f8c8d;color:#fff;padding:4px 10px;font-size:11px">⚙️</button>
+  </div>
 </div>
 
 <div class="main-container">
@@ -140,21 +166,81 @@ input[readonly]{background-color:#f0f0f0;cursor:default}
     <input type="hidden" id="private">
   </div>
 </div>
+</div>
 
 <script>
 "use strict";
 
 var API_URL = localStorage.getItem("breeders_v2_api_url") || "";
-if (!API_URL) document.getElementById("setupOverlay").style.display = "flex";
 
+// ========== إدارة الجلسة ==========
+function isLoggedIn() {
+  return localStorage.getItem("breeder_logged_in") === "true";
+}
+
+function setLoggedIn(status) {
+  if (status) localStorage.setItem("breeder_logged_in", "true");
+  else localStorage.removeItem("breeder_logged_in");
+}
+
+function logout() {
+  setLoggedIn(false);
+  document.getElementById("mainContent").style.display = "none";
+  document.getElementById("loginOverlay").style.display = "flex";
+  if (typeof clearForm === "function") clearForm();
+}
+
+// التحقق من بيانات الدخول عبر Google Sheets
+async function attemptLogin() {
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value.trim();
+  const errorDiv = document.getElementById("loginError");
+  
+  if (!username || !password) {
+    errorDiv.textContent = "❌ الرجاء إدخال اسم المستخدم وكلمة المرور";
+    return;
+  }
+  
+  // التحقق من وجود API_URL
+  if (!API_URL) {
+    errorDiv.textContent = "❌ لم يتم إعداد رابط الخدمة بعد. الرجاء إعداده أولاً.";
+    document.getElementById("setupOverlay").style.display = "flex";
+    return;
+  }
+  
+  errorDiv.textContent = "جاري التحقق...";
+  try {
+    const result = await callApi("verifyLogin", { username: username, password: password });
+    if (result.success === true) {
+      errorDiv.textContent = "";
+      setLoggedIn(true);
+      document.getElementById("loginOverlay").style.display = "none";
+      document.getElementById("mainContent").style.display = "block";
+      init(); // بدء التطبيق
+    } else {
+      errorDiv.textContent = "❌ اسم المستخدم أو كلمة المرور غير صحيحة";
+    }
+  } catch (err) {
+    errorDiv.textContent = "❌ خطأ في الاتصال: " + err.message;
+  }
+}
+
+// ========== بقية الكود الأصلي مع تعديل طفيف لـ callApi ==========
 function saveApiUrl() {
   var url = document.getElementById("apiUrlInput").value.trim();
   if (!url) { alert("الرجاء إدخال الرابط"); return; }
   localStorage.setItem("breeders_v2_api_url", url);
   API_URL = url;
   document.getElementById("setupOverlay").style.display = "none";
-  init();
+  // بعد حفظ الرابط، نعيد محاولة تسجيل الدخول إذا كانت شاشة الدخول ظاهرة
+  if (document.getElementById("loginOverlay").style.display === "flex") {
+    // لا نقوم بتسجيل الدخول تلقائياً، فقط نزيل رسالة الخطأ
+    document.getElementById("loginError").textContent = "";
+  } else {
+    init();
+  }
 }
+
 function changeApiUrl() {
   document.getElementById("apiUrlInput").value = API_URL;
   document.getElementById("setupOverlay").style.display = "flex";
@@ -168,7 +254,6 @@ async function callApi(action, payload) {
   return await r.json();
 }
 
-// ===== UI =====
 function showMessage(msg, isError) {
   var old = document.querySelector(".toast"); if (old) old.remove();
   var t = document.createElement("div"); t.className = "toast " + (isError?"error":"success");
@@ -232,7 +317,6 @@ function validateUpdate() {
   return true;
 }
 
-// ===== Dropdowns =====
 async function refreshDropdowns() {
   try {
     var results = await Promise.all([callApi("getPhoneNumbers"),callApi("getDataEntryOptions"),callApi("getRegionOptions")]);
@@ -243,7 +327,6 @@ async function refreshDropdowns() {
   }catch(err){showMessage("خطأ في تحميل القوائم: "+err.message,true);}
 }
 
-// ===== CRUD =====
 async function saveData() {
   if(!validateSave())return;
   var data={phone:getValue("caseNumber"),name:getValue("nameInput"),possession:getValue("possessionInput"),
@@ -288,21 +371,19 @@ async function deleteData() {
   });
 }
 
-// ===== Search =====
 async function performGlobalSearch() {
   var searchText=getValue("globalSearchInput");
   if(!searchText){showMessage("الرجاء إدخال نص للبحث",true);return;}
   var container=document.getElementById("searchResultsContainer");
   container.style.display="block";
   var tbody=document.getElementById("searchResultsBody");
-  tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>جاري البحث...</td></tr>";
+  tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>جاري البحث...<\/td><\/tr>";
   try {
     var res=await callApi("searchBreeders",{searchText:searchText});
-    if(!res.success||!res.data||res.data.length<=1){tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>لا توجد نتائج</td></tr>";return;}
+    if(!res.success||!res.data||res.data.length<=1){tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>لا توجد نتائج<\/td><\/tr>";return;}
     var headers=res.data[0],rows=res.data.slice(1);
-    document.getElementById("searchResultsHeader").innerHTML="<tr>"+headers.map(function(h){return"<th style='border:1px solid #ccc;padding:4px;background:#f0f0f0'>"+(h||" ")+"</th>";}).join("")+"</tr>";
-    tbody.innerHTML=rows.map(function(row){return"<tr>"+row.map(function(c){return"<td style='border:1px solid #ccc;padding:4px'>"+(c||" ")+"</td>";}).join("")+"</tr>";}).join("");
-
+    document.getElementById("searchResultsHeader").innerHTML="<tr>"+headers.map(function(h){return"<th style='border:1px solid #ccc;padding:4px;background:#f0f0f0'>"+(h||" ")+"<\/th>";}).join("")+"<\/tr>";
+    tbody.innerHTML=rows.map(function(row){return"<tr>"+row.map(function(c){return"<td style='border:1px solid #ccc;padding:4px'>"+(c||" ")+"<\/td>";}).join("")+"<\/tr>";}).join("");
     Array.from(tbody.querySelectorAll("tr")).forEach(function(tr){
       tr.style.cursor="pointer";
       tr.addEventListener("click",async function(){
@@ -313,7 +394,7 @@ async function performGlobalSearch() {
         await loadCaseData(firstCell);
       });
     });
-  }catch(err){tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>خطأ: "+err.message+"</td></tr>";}
+  }catch(err){tbody.innerHTML="<tr><td colspan='100' style='text-align:center'>خطأ: "+err.message+"<\/td><\/tr>";}
 }
 
 async function loadCaseData(phone) {
@@ -322,7 +403,6 @@ async function loadCaseData(phone) {
   catch(err){showMessage("خطأ: "+err.message,true);}
 }
 
-// ===== Possession in treatment =====
 async function updatePossession() {
   var phone=getValue("phoneInput"),possession=getValue("possessionInput");
   if(!phone){showMessage("⚠️ الرجاء اختيار رقم الهاتف",true);return;}
@@ -338,7 +418,6 @@ async function updatePossession() {
   });
 }
 
-// ===== Vaccination =====
 function collectBreederDataForUpdate(){
   var phone=getValue("phoneInput"),newPhone=getValue("newPhoneInput");
   return{phone:phone,newPhone:newPhone||phone,name:getValue("nameInput"),possession:getValue("possessionInput"),
@@ -349,10 +428,8 @@ function collectBreederDataForUpdate(){
 }
 
 async function saveVaccination() {
-  // تحديث بيانات المربي أولاً ثم حفظ التحصين
   var phone=getValue("phoneInput");
   if(phone){try{await callApi("updateData",{data:collectBreederDataForUpdate()});}catch(e){}}
-
   var casePhone=getValue("caseNumber"),name=getValue("nameInput"),dataEntry=getValue("dataEntryInput");
   if(!phone){showMessage("⚠️ أختر رقم الهاتف من البحث",true);return;}
   if(!casePhone){showMessage("⚠️ رقم الهاتف مطلوب",true);return;}
@@ -360,11 +437,9 @@ async function saveVaccination() {
   if(!dataEntry){showMessage("⚠️ مدخل البيانات مطلوب",true);return;}
   var goat=getValue("animal_goat"),sheep=getValue("animal_sheep"),cow=getValue("animal_cow");
   if(![goat,sheep,cow].some(function(v){return v!==""&&Number(v)>0;})){showMessage("⚠️ يجب إدخال عدد حيوان واحد على الأقل",true);return;}
-
   var vacData={phone:casePhone,name:name,civil:getValue("civilInput"),region:getValue("regionInput"),
     possession:getValue("possessionInput"),financialDate:getValue("financialDate"),notes:getValue("notes"),
     animals:{goat:goat,sheep:sheep,cow:cow},dataEntry:dataEntry};
-
   var btn=document.getElementById("saveVaccinationBtn"),orig=btn.textContent;
   btn.textContent="جاري الحفظ...";btn.disabled=true;
   try{var res=await callApi("saveVaccinationData",{data:vacData});if(res.success){showMessage("✅ تم حفظ بيانات التحصين",false);clearForm();}else showMessage("❌ "+res.message,true);}
@@ -379,16 +454,12 @@ async function updateVaccination() {
   if(!dataUpdater){showMessage("⚠️ مدخل البيانات (التحديث) مطلوب",true);return;}
   var goat=getValue("animal_goat"),sheep=getValue("animal_sheep"),cow=getValue("animal_cow");
   if(![goat,sheep,cow].some(function(v){return v!==""&&Number(v)>0;})){showMessage("⚠️ يجب إدخال عدد حيوان",true);return;}
-
   var newPhone=getValue("newPhoneInput");
   var vacData={phone:phone,newPhone:newPhone||phone,name:name,civil:getValue("civilInput"),region:getValue("regionInput"),
     possession:getValue("possessionInput"),financialDate:getValue("financialDate"),notes:getValue("notes"),
     animals:{goat:goat,sheep:sheep,cow:cow},dataUpdater:dataUpdater};
-
   showConfirm("هل أنت متأكد من تحديث بيانات التحصين للرقم: "+phone+"؟",async function(){
-    // تحديث بيانات المربي أولاً
     try{await callApi("updateData",{data:collectBreederDataForUpdate()});}catch(e){}
-
     var btn=document.getElementById("updateVaccinationBtn"),orig=btn.textContent;
     btn.textContent="جاري التحديث...";btn.disabled=true;
     try{var res=await callApi("updateVaccinationData",{data:vacData});if(res.success){showMessage("✅ تم تحديث بيانات التحصين",false);clearForm();}else showMessage("❌ "+res.message,true);}
@@ -409,7 +480,6 @@ async function deleteVaccination() {
   });
 }
 
-// ===== Events =====
 function bindEvents() {
   document.getElementById("saveBtn").onclick=saveData;
   document.getElementById("updateBtn").onclick=updateData;
@@ -419,7 +489,6 @@ function bindEvents() {
   document.getElementById("saveVaccinationBtn").onclick=saveVaccination;
   document.getElementById("updateVaccinationBtn").onclick=updateVaccination;
   document.getElementById("deleteVaccinationBtn").onclick=deleteVaccination;
-
   document.getElementById("globalSearchInput").addEventListener("keypress",function(e){if(e.key==="Enter")performGlobalSearch();});
   var searchTimer;
   document.getElementById("globalSearchInput").addEventListener("input",function(){
@@ -427,7 +496,6 @@ function bindEvents() {
     if(!this.value.trim()){document.getElementById("searchResultsContainer").style.display="none";return;}
     searchTimer=setTimeout(performGlobalSearch,400);
   });
-
   document.getElementById("phoneInput").addEventListener("change",async function(){
     var phone=this.value.trim();if(!phone)return;
     document.getElementById("private").value=phone;
@@ -439,12 +507,23 @@ function bindEvents() {
 }
 
 function init(){
+  if (!API_URL) {
+    document.getElementById("setupOverlay").style.display = "flex";
+    return;
+  }
   bindEvents();
-  if(API_URL)refreshDropdowns();
+  refreshDropdowns();
 }
 
-if(API_URL)init();
-else bindEvents();
+// بدء التشغيل: التحقق من حالة الدخول أولاً
+if (isLoggedIn()) {
+  document.getElementById("loginOverlay").style.display = "none";
+  document.getElementById("mainContent").style.display = "block";
+  if (API_URL) init(); else document.getElementById("setupOverlay").style.display = "flex";
+} else {
+  document.getElementById("loginOverlay").style.display = "flex";
+  document.getElementById("mainContent").style.display = "none";
+}
 </script>
 </body>
 </html>
