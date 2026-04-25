@@ -66,30 +66,12 @@ input[readonly]{background-color:#f0f0f0;cursor:default}
 .setup-box input{width:100%;padding:8px;margin:10px 0;border:2px solid #ddd;border-radius:4px}
 .setup-box button{background:#2bb673;color:#fff;padding:10px 20px;width:100%;border:0;border-radius:5px;font-weight:bold;cursor:pointer}
 @media(max-width:1100px){.main-container{flex-direction:column}.right-panel{grid-template-columns:1fr}.merged-empty-card{min-height:auto}}
-.logout-btn{background:#e67e22;color:#fff;padding:5px 15px;border-radius:4px;font-size:13px}
+
 </style>
+<base target="_blank">
 </head>
 <body>
 
-<!-- شاشة تسجيل الدخول -->
-<div id="loginOverlay" class="login-overlay" style="display:flex;">
-  <div class="login-box">
-    <h2>🔐 دخول آمن</h2>
-    <input type="text" id="loginUsername" placeholder="اسم المستخدم" autocomplete="off">
-    <input type="password" id="loginPassword" placeholder="كلمة المرور">
-    <button onclick="attemptLogin()">تسجيل الدخول</button>
-    <div id="loginError" class="error-msg"></div>
-  </div>
-</div>
-
-<!-- شاشة إعداد رابط API -->
-<div class="setup-overlay" id="setupOverlay" style="display:none">
-  <div class="setup-box">
-    <h3>🔧 إعداد رابط الخدمة</h3>
-    <p>الصق رابط الـ Web App:</p>
-    <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
-    <button onclick="saveApiUrl()">حفظ والمتابعة</button>
-  </div>
 </div>
 
 <!-- المحتوى الرئيسي -->
@@ -99,9 +81,7 @@ input[readonly]{background-color:#f0f0f0;cursor:default}
     <input list="phoneList" id="phoneInput" style="width:265px" placeholder="اختر أو اكتب رقم الهاتف"><datalist id="phoneList"></datalist>
   </div>
   <div style="display:flex; gap:8px;">
-    <button onclick="logout()" class="logout-btn">🚪 تسجيل خروج</button>
-    <button onclick="changeApiUrl()" style="background:#7f8c8d;color:#fff;padding:4px 10px;font-size:11px">⚙️</button>
-  </div>
+    </div>
 </div>
 
 <div class="main-container">
@@ -173,78 +153,7 @@ input[readonly]{background-color:#f0f0f0;cursor:default}
 
 var API_URL = localStorage.getItem("breeders_v2_api_url") || "";
 
-// ========== إدارة الجلسة ==========
-function isLoggedIn() {
-  return localStorage.getItem("breeder_logged_in") === "true";
-}
-
-function setLoggedIn(status) {
-  if (status) localStorage.setItem("breeder_logged_in", "true");
-  else localStorage.removeItem("breeder_logged_in");
-}
-
-function logout() {
-  setLoggedIn(false);
-  document.getElementById("mainContent").style.display = "none";
-  document.getElementById("loginOverlay").style.display = "flex";
-  if (typeof clearForm === "function") clearForm();
-}
-
-// التحقق من بيانات الدخول عبر Google Sheets
-async function attemptLogin() {
-  const username = document.getElementById("loginUsername").value.trim();
-  const password = document.getElementById("loginPassword").value.trim();
-  const errorDiv = document.getElementById("loginError");
-  
-  if (!username || !password) {
-    errorDiv.textContent = "❌ الرجاء إدخال اسم المستخدم وكلمة المرور";
-    return;
-  }
-  
-  // التحقق من وجود API_URL
-  if (!API_URL) {
-    errorDiv.textContent = "❌ لم يتم إعداد رابط الخدمة بعد. الرجاء إعداده أولاً.";
-    document.getElementById("setupOverlay").style.display = "flex";
-    return;
-  }
-  
-  errorDiv.textContent = "جاري التحقق...";
-  try {
-    const result = await callApi("verifyLogin", { username: username, password: password });
-    if (result.success === true) {
-      errorDiv.textContent = "";
-      setLoggedIn(true);
-      document.getElementById("loginOverlay").style.display = "none";
-      document.getElementById("mainContent").style.display = "block";
-      init(); // بدء التطبيق
-    } else {
-      errorDiv.textContent = "❌ اسم المستخدم أو كلمة المرور غير صحيحة";
-    }
-  } catch (err) {
-    errorDiv.textContent = "❌ خطأ في الاتصال: " + err.message;
-  }
-}
-
-// ========== بقية الكود الأصلي مع تعديل طفيف لـ callApi ==========
-function saveApiUrl() {
-  var url = document.getElementById("apiUrlInput").value.trim();
-  if (!url) { alert("الرجاء إدخال الرابط"); return; }
-  localStorage.setItem("breeders_v2_api_url", url);
-  API_URL = url;
-  document.getElementById("setupOverlay").style.display = "none";
-  // بعد حفظ الرابط، نعيد محاولة تسجيل الدخول إذا كانت شاشة الدخول ظاهرة
-  if (document.getElementById("loginOverlay").style.display === "flex") {
-    // لا نقوم بتسجيل الدخول تلقائياً، فقط نزيل رسالة الخطأ
-    document.getElementById("loginError").textContent = "";
-  } else {
-    init();
-  }
-}
-
-function changeApiUrl() {
-  document.getElementById("apiUrlInput").value = API_URL;
-  document.getElementById("setupOverlay").style.display = "flex";
-}
+// ========== بدء التطبيق ==========
 
 async function callApi(action, payload) {
   if (!API_URL) throw new Error("رابط الخدمة غير مُعدّ");
@@ -506,24 +415,11 @@ function bindEvents() {
   });
 }
 
-function init(){
-  if (!API_URL) {
-    document.getElementById("setupOverlay").style.display = "flex";
-    return;
-  }
-  bindEvents();
-  refreshDropdowns();
-}
+function init(){ bindEvents(); refreshDropdowns(); }
 
-// بدء التشغيل: التحقق من حالة الدخول أولاً
-if (isLoggedIn()) {
-  document.getElementById("loginOverlay").style.display = "none";
-  document.getElementById("mainContent").style.display = "block";
-  if (API_URL) init(); else document.getElementById("setupOverlay").style.display = "flex";
-} else {
-  document.getElementById("loginOverlay").style.display = "flex";
-  document.getElementById("mainContent").style.display = "none";
-}
+// بدء التشغيل
+document.getElementById("mainContent").style.display = "block";
+init();
 </script>
 </body>
 </html>
